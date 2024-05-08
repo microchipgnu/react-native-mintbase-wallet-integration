@@ -1,11 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { Button, Text, View, StyleSheet, Linking, TouchableOpacity } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
+import * as WebBrowser from "expo-web-browser";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { WebView } from "react-native-webview";
 
 export default function App() {
   const [accountDetails, setAccountDetails] = useState({});
   const [transactionHashes, setTransactionHashes] = useState("");
+  const webviewRef = useRef()
 
   useEffect(() => {
     const handleDeepLink = (event) => {
@@ -35,9 +43,10 @@ export default function App() {
 
   const handleLogin = async () => {
     await WebBrowser.openBrowserAsync(
-      "https://wallet.mintbase.xyz/connect?success_url=exp://192.168.1.40:8081"
+      "https://wallet.mintbase.xyz/connect?success_url=exp://192.168.1.13:8081"
     );
   };
+  
   const handleSubmitTransaction = async () => {
     const tx = [
       {
@@ -63,9 +72,36 @@ export default function App() {
     await WebBrowser.openBrowserAsync(
       `https://wallet.mintbase.xyz/sign-transaction?transactions_data=${encodeURI(
         JSON.stringify(tx)
-      )}&callback_url=exp://192.168.1.40:8081`
+      )}&callback_url=exp://192.168.1.13:8081`
     );
   };
+
+  const handleNavigationStateChange = async (navState) => {
+    if (
+      navState.url.includes("https://wallet.mintbase.xyz/sign-transaction")
+    ) {
+      webviewRef.current.stopLoading();
+      
+      const parsedUrl = new URL(navState.url);
+      parsedUrl.searchParams.delete("callback_url");
+      parsedUrl.searchParams.set("callback_url", "exp://192.168.1.13:8081");
+
+      await WebBrowser.openBrowserAsync(`${navState.url}`);
+    }
+  };
+
+  if (accountDetails?.account_id) {
+    return (
+      <WebView
+        ref={(ref) => (webviewRef.current = ref)}
+        style={styles.container}
+        source={{
+          uri: `https://minsta.mintbase.xyz/?account_id=${accountDetails.account_id}&public_key=${accountDetails.public_key}`,
+        }}
+        onNavigationStateChange={handleNavigationStateChange}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -94,12 +130,13 @@ export default function App() {
           <Text style={styles.buttonText}>Connect Account</Text>
         </TouchableOpacity>
       ) : (
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleSubmitTransaction}
-        >
-          <Text style={styles.buttonText}>Submit Transaction</Text>
-        </TouchableOpacity>
+        // <TouchableOpacity
+        //   style={styles.button}
+        //   onPress={handleSubmitTransaction}
+        // >
+        //   <Text style={styles.buttonText}>Submit Transaction</Text>
+        // </TouchableOpacity>
+        <></>
       )}
     </View>
   );
@@ -112,6 +149,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingTop: Constants.statusBarHeight,
     backgroundColor: "#f5f5f5", // Softer background color
+    marginTop: 42,
   },
   button: {
     backgroundColor: "#6200EE", // Vibrant button color
